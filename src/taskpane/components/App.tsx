@@ -27,25 +27,34 @@ async function iterate<T>(collection: PowerPointCollection<T>, callback: (item: 
   }
 }
 
+const throwApiError = () => {
+  throw new Error('This version of PowerPoint does not support the preview API features required to use this add-in');
+}
+
 const recolor = (originalColor: string, newColor: string) => PowerPoint.run((context) => 
-  iterate(context.presentation.slides, (slide) =>
-    iterate(slide.shapes, async (shape) => {
+  iterate(context.presentation.slides, (slide) => {
+    if (slide.shapes === undefined) {
+      throwApiError();
+    }
+    return iterate(slide.shapes, async (shape) => {
       if (shape.textFrame === undefined) {
-        throw new Error('This version of PowerPoint does not support the preview API features required to use this add-in');
+        throwApiError();
       }
       try {
         await load(shape);
         await load(shape.textFrame.textRange);
-        for (let i = 0; i < shape.textFrame.textRange.text.length; i++) {
-          const characterRange = shape.textFrame.textRange.getSubstring(i, 1);
-          await load(characterRange.font);
-          if (characterRange.font.color.toLowerCase() === originalColor) {
-            characterRange.font.color = newColor;
-          }
+      } catch(e) {
+        return;
+      }
+      for (let i = 0; i < shape.textFrame.textRange.text.length; i++) {
+        const characterRange = shape.textFrame.textRange.getSubstring(i, 1);
+        await load(characterRange.font);
+        if (characterRange.font.color.toLowerCase() === originalColor) {
+          characterRange.font.color = newColor;
         }
-      } catch(e) {}
+      }
     })
-  )
+  })
 );
 
 const App = ({ title, isOfficeInitialized }: AppProps) => {
