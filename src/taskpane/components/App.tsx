@@ -30,6 +30,9 @@ async function iterate<T>(collection: PowerPointCollection<T>, callback: (item: 
 const recolor = (originalColor: string, newColor: string) => PowerPoint.run((context) => 
   iterate(context.presentation.slides, (slide) =>
     iterate(slide.shapes, async (shape) => {
+      if (shape.textFrame === undefined) {
+        throw new Error('This version of PowerPoint does not support the preview API features required to use this add-in');
+      }
       try {
         await load(shape);
         await load(shape.textFrame.textRange);
@@ -49,6 +52,7 @@ const App = ({ title, isOfficeInitialized }: AppProps) => {
   const [isRecolorRunning, setRecolorRunning] = React.useState(false);
   const [originalColor, setOriginalColor] = React.useState('#ffff00');
   const [newColor, setNewColor] = React.useState('#112fd9');
+  const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
 
   if (!isOfficeInitialized) {
     return (
@@ -62,7 +66,12 @@ const App = ({ title, isOfficeInitialized }: AppProps) => {
   
   const onClick = async () => {
     setRecolorRunning(true);
-    await recolor(originalColor.toLowerCase(), newColor.toLowerCase());
+    try {
+      await recolor(originalColor.toLowerCase(), newColor.toLowerCase());
+      setErrorMessage(null);
+    } catch(e) {
+      setErrorMessage(e.message);
+    }
     setRecolorRunning(false);
   }
   
@@ -88,6 +97,11 @@ const App = ({ title, isOfficeInitialized }: AppProps) => {
       <button onClick={onClick} disabled={isRecolorRunning}>
         {isRecolorRunning ? 'Recoloring...' : 'Recolor'}
       </button>
+      {
+        errorMessage && (
+          <p className="error">{errorMessage}</p>
+        )
+      }
     </main>
   )
 }
